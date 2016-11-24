@@ -1,0 +1,135 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  Basic development environment for web application
+Parameters:
+  DevWebServerName:
+    Type: "String"
+    Default: "DevEC2Instance"
+  DevWebServerKeyPairName:
+    Type: "EC2::KeyPair::KeyName"
+  DevRDSName:
+    Type: "String"
+    Default: "DevRdsInstance"
+  DevRDSRootPassword:
+    Type: "String"
+    Default: "Root"
+
+
+Resources:
+  DevVPC:   # Create Network
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: "true"
+      EnableDnsHostnames: "true"
+      Tags:
+        - Key: "Name"
+          Value: "DevEnvVPC"
+
+  DevInternetGateway: # Create InternetGateway for Dev network
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: "DevEnvVPCInternetGateway"
+
+  DevSubnet:  # Create Subnet for Dev network
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref DevVPC
+      CidrBlock: "10.0.0.0/20"
+      Tags:
+        - Key: "Name"
+          Value: "DevEnvVPCSubnet"
+
+  DevRouteTable: # Create RouteTable for InternetGateway
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref DevVPC
+      Tags:
+        - Key: "Name"
+          Value: "DevEnvVPCRouteTable"
+
+
+  AttachDevSubnet:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref DevRouteTable
+      SubnetId: !Ref DevSubnet
+
+  AttachDevGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref DevVPC
+      InternetGatewayId: !Ref DevInternetGateway
+
+  DevRoute: # Define route for local and internet access
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref DevRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref DevInternetGateway
+
+  WebServerSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow only HTTP and HTTPS"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: icmp
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: "0.0.0.0/0"
+      VpcId:
+        Ref: "DevVPC"
+
+  DevEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: "ami-0c11b26d"
+      InstanceType: "t2.small"
+      KeyName: !Ref DevWebServerKeyPairName
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref "WebServerSecurityGroup"
+          SubnetId:
+            Ref: "DevSubnet"
+      Tags:
+        - Key: "Name"
+          Value: !Ref DevWebServerName
+
+  WebServerEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      InstanceId: !Ref DevEC2Instance
+
+  DevRDSMysqlInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      AllocatedStorage: "20"
+      DBInstanceClass:  "db.t2.micro"
+      DBInstanceIdentifier: "BasicDevRDSInstance"
+      Engine: "mysql"
+      MasterUsername: "root"
+      MasterUserPassword: !Ref DevRDSRootPassword
+      MonitoringInterval: 0
+      Port: 3306
+      Tags:
+        - Key: "name"
+          Value: !Ref DevRDSName
