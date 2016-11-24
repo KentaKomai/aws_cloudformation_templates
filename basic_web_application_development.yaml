@@ -16,7 +16,6 @@ Parameters:
     Type: "String"
     Default: "Root"
 
-
 Resources:
   DevVPC:   # Create Network
     Type: "AWS::EC2::VPC"

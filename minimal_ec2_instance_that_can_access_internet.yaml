@@ -1,0 +1,126 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  Minimal EC2 instance (with EIP) that can access internet
+
+Parameters:
+  EC2InstanceName:
+    Type: "String"
+    MinLength: "1"
+  EC2KeyPairName:
+    Type: "AWS::EC2::KeyPair::KeyName"
+  AMIIMageId:
+    Type: "AWS::EC2::Image::Id"
+    Default: "ami-0c11b26d"
+  InstanceType:
+    Type: "String"
+    Default: "t2.micro"
+    AllowedValues:
+      - "t2.nano"
+      - "t2.micro"
+      - "t2.small"
+      - "t2.large"
+      - "m4.large"
+      - "m4.xlarge"
+      - "m4.2xlarge"
+      - "m4.4xlarge"
+  VPCCidrBlock:
+    Type: "String"
+    Default: "10.0.0.0/16"
+    MinLength: "9"
+    MaxLength: "19"
+  VPCSubnetCidrBlock:
+    Type: "String"
+    Default: "10.0.0.0/20"
+    MinLength: "9"
+    MaxLength: "19"
+
+Resources:
+
+  EC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !Ref AMIIMageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref EC2KeyPairName
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref SSHAccessibleSecurityGroup
+          SubnetId: !Ref SubnetForEC2Instance
+
+  VPCForEC2Instance:   # Create Network
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref VPCCidrBlock
+      EnableDnsSupport: "true"
+      EnableDnsHostnames: "true"
+      Tags:
+        - Key: "Name"
+          Value: "MinimalEC2VPC"
+
+  SubnetForEC2Instance:  # Create Subnet for Dev network
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPCForEC2Instance
+      CidrBlock: !Ref VPCSubnetCidrBlock
+      Tags:
+        - Key: "Name"
+          Value: "MinimalEC2VPCSubnet"
+
+  RouteTableForEC2Instance: # Create RouteTable for InternetGateway
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPCForEC2Instance
+      Tags:
+        - Key: "Name"
+          Value: "MinimalEC2VPCRouteTable"
+
+  InternetGatewayForVPC:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: "InternetGatewayForMinimalEC2VPC"
+
+  AttachSubnetRouteTable:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref RouteTableForEC2Instance
+      SubnetId: !Ref SubnetForEC2Instance
+
+  AttachGatewayToVPC:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPCForEC2Instance
+      InternetGatewayId: !Ref InternetGatewayForVPC
+
+  DefineRouteTableToInternet:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref RouteTableForEC2Instance
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGatewayForVPC
+
+  SSHAccessibleSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow SSH"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: "0.0.0.0/0"
+      VpcId: !Ref VPCForEC2Instance
+
+  StaticIPAddressForEC2Instance:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      InstanceId: !Ref EC2Instance
