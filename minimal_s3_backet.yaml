@@ -1,0 +1,34 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  Create minimal S3 bucket
+
+Parameters:
+  S3DefaultAccessControl:
+    Type: "String"
+    Default: "BucketOwnerFullControl"
+    AllowedValues:
+      - "AuthenticatedRead"
+      - "AwsExecRead"
+      - "BucketOwnerRead"
+      - "BucketOwnerFullControl"
+      - "LogDeliveryWrite"
+      - "Private"
+      - "PublicRead"
+      - "PublicReadWrite"
+  S3BucketName:
+    Type: "String"
+    Default: "S3BucketByCloudFormation"
+    MinLength: "1"
+
+Resources:
+
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccessControl: !Ref S3DefaultAccessControl
+      BucketName: !Ref S3BucketName
+      Tags:
+        - Key: "Name"
+          Name: !Ref S3BucketName
