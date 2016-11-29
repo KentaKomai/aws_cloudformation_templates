@@ -29,6 +29,3 @@ Resources:
     Properties:
       AccessControl: !Ref S3DefaultAccessControl
       BucketName: !Ref S3BucketName
-      Tags:
-        - Key: "Name"
-          Name: !Ref S3BucketName

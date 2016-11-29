@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  Basic CDN for web static contents that using S3 and CloudFront
+
+Parameters:
+  S3BucketName:
+    Type: "String"
+    MinLength: "1"
+  S3BucketDefaultAccessControl:
+    Type: "String"
+    Default: "PublicRead"
+    AllowedValues:
+      - "AuthenticatedRead"
+      - "AwsExecRead"
+      - "BucketOwnerRead"
+      - "BucketOwnerFullControl"
+      - "LogDeliveryWrite"
+      - "Private"
+      - "PublicRead"
+      - "PublicReadWrite"
+
+Resources:
+
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccessControl: !Ref S3BucketDefaultAccessControl
+      BucketName: !Ref S3BucketName
+
+  CloudFormationDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Origins:
+          - DomainName: !GetAtt S3Bucket.DomainName
+            Id: !Ref S3BucketName
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: !Ref S3Bucket
+          ForwardedValues:
+            QueryString: "false"
+          ViewerProtocolPolicy: "allow-all"
